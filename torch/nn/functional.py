@@ -5223,6 +5223,7 @@ def multi_head_attention_forward(
             need_weights=need_weights,
             attn_mask=attn_mask,
             is_causal=is_causal,
+            is_degenerate=is_degenerate,
             use_separate_proj_weight=use_separate_proj_weight,
             q_proj_weight=q_proj_weight,
             k_proj_weight=k_proj_weight,
@@ -5401,7 +5402,7 @@ def multi_head_attention_forward(
     # (deep breath) calculate attention and out projection
     #
 
-    if need_weights:
+    if need_weights or is_degenerate:
         B, Nt, E = q.shape
         q_scaled = q / math.sqrt(E)
 

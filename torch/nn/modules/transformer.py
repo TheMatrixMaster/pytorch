@@ -92,7 +92,7 @@ class Transformer(Module):
         factory_kwargs = {'device': device, 'dtype': dtype}
         super().__init__()
         torch._C._log_api_usage_once(f"torch.nn.modules.{self.__class__.__name__}")
-
+        
         if custom_encoder is not None:
             self.encoder = custom_encoder
         else:
@@ -288,7 +288,8 @@ class TransformerEncoder(Module):
             src: Tensor,
             mask: Optional[Tensor] = None,
             src_key_padding_mask: Optional[Tensor] = None,
-            is_causal: Optional[bool] = None) -> Tensor:
+            is_causal: Optional[bool] = None,
+            is_degenerate: bool = False) -> Tensor:
         r"""Pass the input through the encoder layers in turn.
 
         Args:
@@ -384,7 +385,7 @@ class TransformerEncoder(Module):
         is_causal = _detect_is_causal_mask(mask, is_causal, seq_len)
 
         for mod in self.layers:
-            output = mod(output, src_mask=mask, is_causal=is_causal, src_key_padding_mask=src_key_padding_mask_for_layers)
+            output = mod(output, src_mask=mask, is_causal=is_causal, src_key_padding_mask=src_key_padding_mask_for_layers, is_degenerate=is_degenerate)
 
         if convert_to_nested:
             output = output.to_padded_tensor(0., src.size())
@@ -422,7 +423,7 @@ class TransformerDecoder(Module):
     def forward(self, tgt: Tensor, memory: Tensor, tgt_mask: Optional[Tensor] = None,
                 memory_mask: Optional[Tensor] = None, tgt_key_padding_mask: Optional[Tensor] = None,
                 memory_key_padding_mask: Optional[Tensor] = None, tgt_is_causal: Optional[bool] = None,
-                memory_is_causal: bool = False) -> Tensor:
+                memory_is_causal: bool = False, is_degenerate: bool = False) -> Tensor:
         r"""Pass the inputs (and mask) through the decoder layer in turn.
 
         Args:
@@ -462,7 +463,8 @@ class TransformerDecoder(Module):
                          tgt_key_padding_mask=tgt_key_padding_mask,
                          memory_key_padding_mask=memory_key_padding_mask,
                          tgt_is_causal=tgt_is_causal,
-                         memory_is_causal=memory_is_causal)
+                         memory_is_causal=memory_is_causal,
+                         is_degenerate=is_degenerate)
 
         if self.norm is not None:
             output = self.norm(output)
@@ -842,11 +844,11 @@ class TransformerDecoderLayer(Module):
         x = tgt
         if self.norm_first:
             x = x + self._sa_block(self.norm1(x), tgt_mask, tgt_key_padding_mask, tgt_is_causal, is_degenerate)
-            x = x + self._mha_block(self.norm2(x), memory, memory_mask, memory_key_padding_mask, memory_is_causal)
+            x = x + self._mha_block(self.norm2(x), memory, memory_mask, memory_key_padding_mask, memory_is_causal, is_degenerate)
             x = x + self._ff_block(self.norm3(x))
         else:
-            x = self.norm1(x + self._sa_block(x, tgt_mask, tgt_key_padding_mask, tgt_is_causal))
-            x = self.norm2(x + self._mha_block(x, memory, memory_mask, memory_key_padding_mask, memory_is_causal))
+            x = self.norm1(x + self._sa_block(x, tgt_mask, tgt_key_padding_mask, tgt_is_causal, is_degenerate))
+            x = self.norm2(x + self._mha_block(x, memory, memory_mask, memory_key_padding_mask, memory_is_causal, is_degenerate))
             x = self.norm3(x + self._ff_block(x))
 
         return x

@@ -1133,7 +1133,6 @@ class MultiheadAttention(Module):
             check_other=False,
         )
 
-
         if not is_batched:
             why_not_fast_path = f"input not batched; expected query.dim() of 3 but got {query.dim()}"
         elif query is not key or key is not value:
