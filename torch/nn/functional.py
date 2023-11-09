@@ -5124,6 +5124,7 @@ def multi_head_attention_forward(
     static_v: Optional[Tensor] = None,
     average_attn_weights: bool = True,
     is_causal: bool = False,
+    is_degenerate: bool = False,
 ) -> Tuple[Tensor, Optional[Tensor]]:
     r"""
     Args:
@@ -5410,7 +5411,12 @@ def multi_head_attention_forward(
             attn_output_weights = torch.baddbmm(attn_mask, q_scaled, k.transpose(-2, -1))
         else:
             attn_output_weights = torch.bmm(q_scaled, k.transpose(-2, -1))
-        attn_output_weights = softmax(attn_output_weights, dim=-1)
+        
+        if is_degenerate:
+            attn_output_weights = softmax(attn_output_weights, dim=-2)
+        else:
+            attn_output_weights = softmax(attn_output_weights, dim=-1)
+
         if dropout_p > 0.0:
             attn_output_weights = dropout(attn_output_weights, p=dropout_p)
 
